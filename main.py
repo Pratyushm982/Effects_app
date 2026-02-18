@@ -16,7 +16,8 @@ fx = DitherEffect()
 # ─────────────────────────────
 
 audit_styles = [
-    "waveform",
+    "wave_x",
+    "wave_y",
 ]
 
 # ─────────────────────────────
@@ -26,7 +27,7 @@ audit_styles = [
 
 base_params = {
     "cutoff": 0.0,
-    "pixel_size": 5,              # IMPORTANT: visibility
+    "pixel_size": 1,             
     "contrast":1,
     "midtones": 1,
     "highlights": 1,
@@ -34,9 +35,9 @@ base_params = {
     "invert": "off",
 
     # keep these stable for now
-    "pattern_strength": 2,
-    "glitch_strength": 60,
-    "wave_density": 10,
+    "pattern_strength": 4,
+    "glitch_strength": 30,
+    "wave_density": 15,
     "depth": 5,
     "luminance": 0.8,
 

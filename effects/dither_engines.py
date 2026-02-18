@@ -322,15 +322,8 @@ def pattern_crosshatch(gray, scale):
 # -------------------------------
 # GLITCH / MODULATION ENGINE
 # -------------------------------
-def dither_waveform(
-    gray,
-    pattern_strength,
-    glitch_strength,
-    wave_density,
-    depth,
-    luminance,
-    pixel_size,
-):
+def wave_x(gray,pattern_strength,glitch_strength,wave_density,
+    depth,luminance,pixel_size):
     h, w = gray.shape
 
     # ----------------------------------
@@ -397,136 +390,63 @@ def dither_waveform(
 
     return out
 
-
-
-
-
-
-def dither_wave_x(gray, pattern_strength, glitch_strength, wave_density):
+def wave_y(
+    gray,
+    pattern_strength,
+    glitch_strength,
+    wave_density,
+    depth,
+    luminance,
+    pixel_size,
+):
     h, w = gray.shape
-    y, x = np.meshgrid(
-        np.linspace(0, 1, h),
-        np.linspace(0, 1, w),
-        indexing="ij"
-    )
 
-    # --- NEW PARAMETER SEMANTICS ---
-    # wave_density = pixels per wave (vertical repetition)
-    wave_density = max(4, wave_density)
-    band_count = h / wave_density
+    y = np.arange(h, dtype=np.float32).reshape(-1, 1)
+    x = np.arange(w, dtype=np.float32).reshape(1, -1)
 
-    # glitch_strength = wave amplitude
-    amp = glitch_strength * 0.25
+    wave_density = max(wave_density, 1.0)
 
-    # wavelength of horizontal wave = wave_density (intuitive)
-    wavelength = wave_density / w
-    freq = 2 * np.pi / wavelength
+    depth = int(np.clip(depth, 2, 5))
+    bands = np.linspace(0.0, 1.0, depth)
 
-    # --- continuous wave phase ---
-    phase = y + np.sin(x * freq) * amp
+    idx = np.abs(gray[..., None] - bands).argmin(axis=-1)
+    target = bands[idx]
+    quant = gray + (target - gray) * 0.25
 
-    band_pos = phase * band_count
-    band_frac = band_pos % 1.0
+    freq = glitch_strength * (2.0 * np.pi / max(h, 1))
+    amp = pattern_strength
 
-    # distance to wave center (light crest / dark trough)
-    dist = np.abs(band_frac - 0.5)
+    base_phase = (x / wave_density) * (2.0 * np.pi)
+    phase = base_phase + np.sin(y * freq) * amp
+    wave = np.sin(phase)
 
-    # --- smooth darkening inside the wave (NOT black gaps) ---
-    separator_width = 0.5
-    band_mask = 1.0 - np.clip(dist / separator_width, 0, 1)
+    wave_norm = (wave + 1.0) * 0.5
+    darken = 1.0 - luminance * (1.0 - wave_norm)
 
-    # preserve full image, just modulate luminance
-    out = gray * (0.65 + 0.35 * band_mask)
+    out = quant * darken
+    out = np.clip(out, 0.0, 1.0)
 
-    # --- DITHER (pattern_strength ONLY) ---
-    luma_mask = 1.0 - np.abs(gray - 0.5) * 2.0
-    out = micro_dither(
-        out,
-        strength=(0.08 + 0.12 * pattern_strength) * luma_mask
-    )
+    # same dither you already locked
+    band_step = 1.0 / (depth - 1)
+    band_dist = np.abs(out - target) / band_step
+    band_dist = np.clip(band_dist, 0.0, 1.0)
 
-    return np.clip(out, 0.0, 1.0)
+    noise = (np.random.rand(h, w) - 0.5) * band_step * 0.75
+    out += noise * (band_dist ** 1.2)
+    out = np.clip(out, 0.0, 1.0)
 
+    if pixel_size > 1:
+        out = cv2.resize(
+            cv2.resize(out, (w // pixel_size, h // pixel_size),
+                       interpolation=cv2.INTER_AREA),
+            (w, h),
+            interpolation=cv2.INTER_NEAREST
+        )
 
-def dither_wave_y(gray, pattern_strength, glitch_strength, wave_density):
-    h, w = gray.shape
-    y, x = np.meshgrid(np.arange(h), np.arange(w), indexing="ij")
-
-    wavelength = max(4, wave_density)
-    amp = glitch_strength * 0.25
-    freq = 2 * np.pi / wavelength
-
-    wave = np.sin(x * freq)
-    out = gray + wave * amp
-
-    sway = np.sin(x * freq + gray * 2.0) * glitch_strength * 2.0
-    map_y = np.clip(y + sway, 0, h - 1).astype(np.float32)
-
-    out = cv2.remap(
-        out,
-        x.astype(np.float32),
-        map_y,
-        interpolation=cv2.INTER_LINEAR,
-        borderMode=cv2.BORDER_REFLECT
-    )
-
-    dither_strength = 0.08 + 0.12 * pattern_strength
-    out = micro_dither(out, strength=dither_strength)
-
-    return np.clip(out, 0.0, 1.0)
-
-def dither_wave_alt(gray, pattern_strength, glitch_strength, wave_density):
-    h, w = gray.shape
-    y, x = np.meshgrid(np.arange(h), np.arange(w), indexing="ij")
-
-    wave_density = max(2, int(wave_density))
-    diag = (x + y) // wave_density
-    phase = ((x + y) % wave_density) / wave_density
-
-    amp = glitch_strength * wave_density * (0.2 + 0.6 * gray)
-
-    in_wave = phase < 0.5
-    phase = phase * 2.0
-
-    offset = np.sin(phase * 2 * np.pi + diag * 0.9) * amp
-
-    sample_x = np.clip(x + offset, 0, w - 1).astype(np.float32)
-    sample_y = np.clip(y + offset, 0, h - 1).astype(np.float32)
-
-    waved = cv2.remap(
-        gray, sample_x, sample_y,
-        interpolation=cv2.INTER_LINEAR,
-        borderMode=cv2.BORDER_REFLECT
-    )
-
-    dark = gray * 0.12
-    out = np.where(in_wave, waved, dark)
-
-    edge_mask = np.abs(phase - 1.0)
-    luma_mask = 1.0 - np.abs(gray - 0.5) * 2.0
-    dither_mask = edge_mask * luma_mask
-
-    out = micro_dither(out, strength=0.14 * pattern_strength * dither_mask)
-
-    return np.clip(out, 0.0, 1.0)
+    return out
 
 
-def soft_quantize(gray, levels):
-    """
-    Gentle banding, keeps grayscale.
-    levels: 4–8 is ideal for Dither Boy look
-    """
-    levels = max(2, int(levels))
-    return np.round(gray * (levels - 1)) / (levels - 1)
-    
-def micro_dither(gray, strength=0.06):
-    """
-    strength can be:
-    - scalar
-    - per-pixel mask (same shape as gray)
-    """
-    noise = (np.random.rand(*gray.shape) - 0.5)
-    return np.clip(gray + noise * strength, 0.0, 1.0)
+
 
 
 
@@ -756,15 +676,146 @@ PATTERN_ENGINES = {
 }
 
 GLITCH_ENGINES = {
-    "dither_wave_x": dither_wave_x,
-    "dither_wave_y": dither_wave_y,
+    # "dither_wave_x": dither_wave_x,
+    # "dither_wave_y": dither_wave_y,
     "block": glitch_block_shift,
     "threshold": glitch_threshold_mod,
     "radial_threshold": glitch_radial_threshold,
     "topography": glitch_topography,
     "displace_contour": glitch_displace_contour,
-    "dither_wave_alt": dither_wave_alt,
+    # "dither_wave_alt": dither_wave_alt,
     "artifact": glitch_artifact,
     "vhs": glitch_vhs,
-    "waveform": dither_waveform,
+    "wave_x": wave_x,
+    "wave_y": wave_y,
 }
+
+
+
+
+
+
+# def dither_wave_x(gray, pattern_strength, glitch_strength, wave_density):
+#     h, w = gray.shape
+#     y, x = np.meshgrid(
+#         np.linspace(0, 1, h),
+#         np.linspace(0, 1, w),
+#         indexing="ij"
+#     )
+
+#     # --- NEW PARAMETER SEMANTICS ---
+#     # wave_density = pixels per wave (vertical repetition)
+#     wave_density = max(4, wave_density)
+#     band_count = h / wave_density
+
+#     # glitch_strength = wave amplitude
+#     amp = glitch_strength * 0.25
+
+#     # wavelength of horizontal wave = wave_density (intuitive)
+#     wavelength = wave_density / w
+#     freq = 2 * np.pi / wavelength
+
+#     # --- continuous wave phase ---
+#     phase = y + np.sin(x * freq) * amp
+
+#     band_pos = phase * band_count
+#     band_frac = band_pos % 1.0
+
+#     # distance to wave center (light crest / dark trough)
+#     dist = np.abs(band_frac - 0.5)
+
+#     # --- smooth darkening inside the wave (NOT black gaps) ---
+#     separator_width = 0.5
+#     band_mask = 1.0 - np.clip(dist / separator_width, 0, 1)
+
+#     # preserve full image, just modulate luminance
+#     out = gray * (0.65 + 0.35 * band_mask)
+
+#     # --- DITHER (pattern_strength ONLY) ---
+#     luma_mask = 1.0 - np.abs(gray - 0.5) * 2.0
+#     out = micro_dither(
+#         out,
+#         strength=(0.08 + 0.12 * pattern_strength) * luma_mask
+#     )
+
+#     return np.clip(out, 0.0, 1.0)
+
+
+# def dither_wave_y(gray, pattern_strength, glitch_strength, wave_density):
+#     h, w = gray.shape
+#     y, x = np.meshgrid(np.arange(h), np.arange(w), indexing="ij")
+
+#     wavelength = max(4, wave_density)
+#     amp = glitch_strength * 0.25
+#     freq = 2 * np.pi / wavelength
+
+#     wave = np.sin(x * freq)
+#     out = gray + wave * amp
+
+#     sway = np.sin(x * freq + gray * 2.0) * glitch_strength * 2.0
+#     map_y = np.clip(y + sway, 0, h - 1).astype(np.float32)
+
+#     out = cv2.remap(
+#         out,
+#         x.astype(np.float32),
+#         map_y,
+#         interpolation=cv2.INTER_LINEAR,
+#         borderMode=cv2.BORDER_REFLECT
+#     )
+
+#     dither_strength = 0.08 + 0.12 * pattern_strength
+#     out = micro_dither(out, strength=dither_strength)
+
+#     return np.clip(out, 0.0, 1.0)
+
+# def dither_wave_alt(gray, pattern_strength, glitch_strength, wave_density):
+#     h, w = gray.shape
+#     y, x = np.meshgrid(np.arange(h), np.arange(w), indexing="ij")
+
+#     wave_density = max(2, int(wave_density))
+#     diag = (x + y) // wave_density
+#     phase = ((x + y) % wave_density) / wave_density
+
+#     amp = glitch_strength * wave_density * (0.2 + 0.6 * gray)
+
+#     in_wave = phase < 0.5
+#     phase = phase * 2.0
+
+#     offset = np.sin(phase * 2 * np.pi + diag * 0.9) * amp
+
+#     sample_x = np.clip(x + offset, 0, w - 1).astype(np.float32)
+#     sample_y = np.clip(y + offset, 0, h - 1).astype(np.float32)
+
+#     waved = cv2.remap(
+#         gray, sample_x, sample_y,
+#         interpolation=cv2.INTER_LINEAR,
+#         borderMode=cv2.BORDER_REFLECT
+#     )
+
+#     dark = gray * 0.12
+#     out = np.where(in_wave, waved, dark)
+
+#     edge_mask = np.abs(phase - 1.0)
+#     luma_mask = 1.0 - np.abs(gray - 0.5) * 2.0
+#     dither_mask = edge_mask * luma_mask
+
+#     out = micro_dither(out, strength=0.14 * pattern_strength * dither_mask)
+
+#     return np.clip(out, 0.0, 1.0)
+
+# def soft_quantize(gray, levels):
+#     """
+#     Gentle banding, keeps grayscale.
+#     levels: 4–8 is ideal for Dither Boy look
+#     """
+#     levels = max(2, int(levels))
+#     return np.round(gray * (levels - 1)) / (levels - 1)
+    
+# def micro_dither(gray, strength=0.06):
+#     """
+#     strength can be:
+#     - scalar
+#     - per-pixel mask (same shape as gray)
+#     """
+#     noise = (np.random.rand(*gray.shape) - 0.5)
+#     return np.clip(gray + noise * strength, 0.0, 1.0)

@@ -18,12 +18,8 @@ from effects.dither_engines import (
     glitch_block_shift,
     glitch_artifact,
     glitch_vhs,
-    dither_wave_x,
-    dither_wave_y,
-    dither_wave_alt,
-    soft_quantize,
-    micro_dither,
-    dither_waveform,
+    wave_x,
+    wave_y,
 )
 
 def apply_tonal_shaping(
@@ -323,88 +319,34 @@ class DitherEffect(Effect):
             # Global contrast influence (safe scalar)
             mask_strength = np.mean(glitch_mask)
             
-            if glitch_type == "waveform":
-                out = dither_waveform(
+            if glitch_type == "wave_x":
+                out = wave_x(
                     gray,
-                    pattern_strength=params["pattern_strength"],  # wave amplitude
-                    glitch_strength=params["glitch_strength"],    # wave frequency
-                    wave_density=params["wave_density"],          # band spacing
-                    depth=params["depth"],                         # luminance bands
-                    luminance=params["luminance"],                 # dark trough strength
-                    pixel_size=params["pixel_size"],               # visibility scaling
+                    pattern_strength=params["pattern_strength"],  
+                    glitch_strength=params["glitch_strength"],    
+                    wave_density=params["wave_density"],          
+                    depth=params["depth"],                         
+                    luminance=params["luminance"],                 
+                    pixel_size=params["pixel_size"],               
                 )
 
                 out = np.clip(out, 0.0, 1.0)
 
-
-
-
-            elif glitch_type == "dither_wave_x":
-                out = dither_wave_x(
+            elif glitch_type == "wave_y":
+                out = wave_y(
                     gray,
-                    pattern_strength=params.get("pattern_strength", 1.0),
-                    glitch_strength=glitch_strength,
-                    wave_density=params.get("wave_density", 1),
-                )
-
-                # enhance wave contrast
-                out = np.clip((out - 0.5) * 1.35 + 0.5, 0.0, 1.0)
-
-                # banding (THIS creates visible wave steps)
-                band_levels = int(3 + pattern_strength * 6)
-                band_levels = np.clip(band_levels, 3, 9)
-                out = soft_quantize(out, band_levels)
-
-                # break band edges (THIS is the dither)
-                out = micro_dither(
-                    out,
-                    strength=0.04 + 0.04 * glitch_strength
-                )
-
-            elif glitch_type == "dither_wave_y":
-                out = dither_wave_y(
-                    gray,
-                    pattern_strength=params.get("pattern_strength", 1.0),
-                    glitch_strength=glitch_strength,
-                    wave_density=params.get("wave_density", 1),
-                )
-
-                # enhance wave contrast
-                out = np.clip((out - 0.5) * 1.35 + 0.5, 0.0, 1.0)
-
-                # banding (THIS creates visible wave steps)
-                band_levels = int(3 + pattern_strength * 6)
-                band_levels = np.clip(band_levels, 3, 9)
-                out = soft_quantize(out, band_levels)
-
-                # break band edges (THIS is the dither)
-                out = micro_dither(
-                    out,
-                    strength=0.04 + 0.04 * glitch_strength
+                    pattern_strength=params["pattern_strength"],
+                    glitch_strength=params["glitch_strength"],
+                    wave_density=params["wave_density"],
+                    depth=params["depth"],
+                    luminance=params["luminance"],
+                    pixel_size=params["pixel_size"],
                 )
 
 
-            elif glitch_type == "dither_wave_alt":
-                out = dither_wave_alt(
-                    gray,
-                    pattern_strength=params.get("pattern_strength", 1.0),
-                    glitch_strength=glitch_strength,
-                    wave_density=params.get("wave_density", 1),
-                )
 
-                # enhance wave contrast
-                out = np.clip((out - 0.5) * 1.35 + 0.5, 0.0, 1.0)
 
-                # banding (THIS creates visible wave steps)
-                band_levels = int(3 + pattern_strength * 6)
-                band_levels = np.clip(band_levels, 3, 9)
-                out = soft_quantize(out, band_levels)
-
-                # break band edges (THIS is the dither)
-                out = micro_dither(
-                    out,
-                    strength=0.04 + 0.04 * glitch_strength
-                )
+ 
 
 
             elif glitch_type == "block":
@@ -494,3 +436,73 @@ class DitherEffect(Effect):
             )
 
         return out
+
+
+
+
+        #    elif glitch_type == "dither_wave_x":
+        #         out = dither_wave_x(
+        #             gray,
+        #             pattern_strength=params.get("pattern_strength", 1.0),
+        #             glitch_strength=glitch_strength,
+        #             wave_density=params.get("wave_density", 1),
+        #         )
+
+        #         # enhance wave contrast
+        #         out = np.clip((out - 0.5) * 1.35 + 0.5, 0.0, 1.0)
+
+        #         # banding (THIS creates visible wave steps)
+        #         band_levels = int(3 + pattern_strength * 6)
+        #         band_levels = np.clip(band_levels, 3, 9)
+        #         out = soft_quantize(out, band_levels)
+
+        #         # break band edges (THIS is the dither)
+        #         out = micro_dither(
+        #             out,
+        #             strength=0.04 + 0.04 * glitch_strength
+        #         )
+
+        #     elif glitch_type == "dither_wave_y":
+        #         out = dither_wave_y(
+        #             gray,
+        #             pattern_strength=params.get("pattern_strength", 1.0),
+        #             glitch_strength=glitch_strength,
+        #             wave_density=params.get("wave_density", 1),
+        #         )
+
+        #         # enhance wave contrast
+        #         out = np.clip((out - 0.5) * 1.35 + 0.5, 0.0, 1.0)
+
+        #         # banding (THIS creates visible wave steps)
+        #         band_levels = int(3 + pattern_strength * 6)
+        #         band_levels = np.clip(band_levels, 3, 9)
+        #         out = soft_quantize(out, band_levels)
+
+        #         # break band edges (THIS is the dither)
+        #         out = micro_dither(
+        #             out,
+        #             strength=0.04 + 0.04 * glitch_strength
+        #         )
+
+
+        #     elif glitch_type == "dither_wave_alt":
+        #         out = dither_wave_alt(
+        #             gray,
+        #             pattern_strength=params.get("pattern_strength", 1.0),
+        #             glitch_strength=glitch_strength,
+        #             wave_density=params.get("wave_density", 1),
+        #         )
+
+        #         # enhance wave contrast
+        #         out = np.clip((out - 0.5) * 1.35 + 0.5, 0.0, 1.0)
+
+        #         # banding (THIS creates visible wave steps)
+        #         band_levels = int(3 + pattern_strength * 6)
+        #         band_levels = np.clip(band_levels, 3, 9)
+        #         out = soft_quantize(out, band_levels)
+
+        #         # break band edges (THIS is the dither)
+        #         out = micro_dither(
+        #             out,
+        #             strength=0.04 + 0.04 * glitch_strength
+        #         )

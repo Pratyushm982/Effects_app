@@ -135,23 +135,32 @@ DITHER_STYLES = {
         "engine": "pattern",
         "config": {"pattern": "crosshatch", "scale": 12},
     },
+    
     # --- Glitch / Modulation ---
-    "waveform": {
+    "wave_x": {
         "label": "Waveform",
         "engine": "glitch",
-        "config": {"type": "waveform"},
+        "config": {"type": "wave_x"},
     },
 
-    "waveform_x": {
-        "label": "Waveform X",
+    "wave_y": {
+        "label": "Waveform",
         "engine": "glitch",
-        "config": {"type": "dither_wave_x", "frequency": 1.0},
+        "config": {"type": "wave_y"},
     },
-    "waveform_y": {
-        "label": "Waveform Y",
-        "engine": "glitch",
-        "config": {"type": "dither_wave_y", "frequency": 1.0},
-    },
+
+
+    # "waveform_x": {
+    #     "label": "Waveform X",
+    #     "engine": "glitch",
+    #     "config": {"type": "dither_wave_x", "frequency": 1.0},
+    # },
+    # "waveform_y": {
+    #     "label": "Waveform Y",
+    #     "engine": "glitch",
+    #     "config": {"type": "dither_wave_y", "frequency": 1.0},
+    # },
+
     "glitch_block": {
         "label": "Block Glitch",
         "engine": "glitch",
@@ -187,11 +196,11 @@ DITHER_STYLES = {
     #    "engine": "glitch",
     #    "config": {"type": "wave_y", "amplitude": 10, "frequency": 0.03},
     #},
-    "waveform_alt": {
-        "label": "Waveform Alt",
-        "engine": "glitch",
-        "config": {"type": "dither_wave_alt", "frequency": 1.0},
-    },
+    # "waveform_alt": {
+    #     "label": "Waveform Alt",
+    #     "engine": "glitch",
+    #     "config": {"type": "dither_wave_alt", "frequency": 1.0},
+    # },
 
 
     # --- Luminance / Directional ---
