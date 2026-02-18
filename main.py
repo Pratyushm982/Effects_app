@@ -26,7 +26,7 @@ audit_styles = [
 
 base_params = {
     "cutoff": 0.0,
-    "pixel_size": 1,              # IMPORTANT: visibility
+    "pixel_size": 5,              # IMPORTANT: visibility
     "contrast":1,
     "midtones": 1,
     "highlights": 1,
