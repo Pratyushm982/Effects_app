@@ -34,9 +34,9 @@ base_params = {
     "invert": "off",
 
     # keep these stable for now
-    "pattern_strength": 3,
-    "glitch_strength": 30,
-    "wave_density": 15,
+    "pattern_strength": 2,
+    "glitch_strength": 60,
+    "wave_density": 10,
     "depth": 5,
     "luminance": 0.8,
 
